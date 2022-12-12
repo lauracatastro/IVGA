@@ -11,7 +11,7 @@ If either of those conditions are not met, the plugin will throw an error messag
 
 The user interface when the plugin opens:
 
-![image](https://user-images.githubusercontent.com/101393679/207035167-ef053e16-6e7a-4e9a-881e-b27e3cfe3248.png)
+![image](https://user-images.githubusercontent.com/101393679/207062519-9c302dc4-05a3-4b0c-b030-e04c3452e792.png)
 
 1. Title: It contains an hyperlink redirecting to the official documentation for the IVGA proccedure.
 2. Selected Parcels: 
@@ -54,7 +54,9 @@ Los requisitos para el funcionamiento del plugin son los siguientes:
 Si no se cumple alguna de las condiciones, se mostrará un mensaje de error indicando la causa.
 
 La interfaz de usuario al abrir el plugin se muestra a continuación:
-![image](https://user-images.githubusercontent.com/101393679/207035167-ef053e16-6e7a-4e9a-881e-b27e3cfe3248.png)
+
+![image](https://user-images.githubusercontent.com/101393679/207062519-9c302dc4-05a3-4b0c-b030-e04c3452e792.png)
+
 1. Título: Contiene un hipervínculo redirigiendo a la documentación oficial del procedimiento IVGA.
 2. Parcelas seleccionadas:
     
