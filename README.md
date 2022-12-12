@@ -26,7 +26,7 @@ The user interface when the plugin opens:
     
     If this checkbox is checked, it will make a request to the Spanish Cadastre for each RefCat with 14 characters, the RefCat exists:
     - LocalId changes to the same as RefCat
-    - Namespace changes to SGDC
+    - Namespace changes to SDGC
     
     In any other case:
     - LocalId is a new unique identifier
@@ -70,7 +70,7 @@ La interfaz de usuario al abrir el plugin se muestra a continuación:
     
     Si se selecciona esta opción, se hará una petición a Catastro para cada RefCat de 14 caracteres, si existe:
     - LocalId cambia para ser igual que RefCat
-    - Namespace cambia a SGDC
+    - Namespace cambia a SDGC
     
     En cualquier otro caso:
     - LocalId sería un identificador único generado automáticamente
