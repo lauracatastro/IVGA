@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>496</width>
+    <width>630</width>
     <height>466</height>
    </rect>
   </property>
@@ -19,9 +19,11 @@
   <property name="windowTitle">
    <string notr="true">Exportación parcelas a GML</string>
   </property>
+  <layout class="QVBoxLayout" name="verticalLayout_1">
+  </layout>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2">
+    <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <widget class="QLabel" name="Logo">
        <property name="minimumSize">
@@ -57,7 +59,7 @@
         </font>
        </property>
        <property name="text">
-        <string>Exportación parcelas catastrales\n(formato INSPIRE GML CP)</string>
+        <string>Generación de GML de Parcela Catastral\n(formato INSPIRE GML CP)</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>
@@ -73,6 +75,12 @@
     <layout class="QGridLayout" name="gridLayout">
      <item row="0" column="0">
       <widget class="QLabel" name="label_2">
+       <property name="minimumSize">
+        <size>
+         <width>116</width>
+         <height>0</height>
+        </size>
+       </property>
        <property name="text">
         <string>Parcelas\nseleccionadas</string>
        </property>
@@ -114,30 +122,60 @@
        </attribute>
       </widget>
      </item>
-     <item row="1" column="0">
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_1">
+     <item>
       <widget class="QLabel" name="check_lbl">
+       <property name="minimumSize">
+        <size>
+         <width>116</width>
+         <height>0</height>
+        </size>
+       </property>
        <property name="text">
-        <string>Comprobar Ref. Cat.</string>
+        <string>Validar Ref. Cat.</string>
        </property>
       </widget>
      </item>
-     <item row="1" column="1">
+     <item>
       <widget class="QCheckBox" name="check"/>
      </item>
+     <item>
+      <widget class="QPushButton" name="Validar">
+       <property name="text">
+        <string>Validar</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="options"/>
+     </item>
+     <item>
     </layout>
    </item>
-     <item row="2" column="0">
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <item>
       <widget class="QLabel" name="fileName_lbl">
+       <property name="minimumSize">
+        <size>
+         <width>116</width>
+         <height>0</height>
+        </size>
+       </property>
        <property name="text">
         <string>Nombre del fichero</string>
        </property>
       </widget>
      </item>
-     <item row="2" column="1">
+     <item>
       <widget class="QLineEdit" name="fileName"/>
      </item>
     </layout>
    </item>
+
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_3">
      <item>
@@ -205,9 +243,15 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_5">
+    <layout class="QHBoxLayout" name="horizontalLayout_4">
      <item>
       <widget class="QLabel" name="label_4">
+       <property name="minimumSize">
+        <size>
+         <width>116</width>
+         <height>0</height>
+        </size>
+       </property>
        <property name="text">
         <string>Carpeta destino</string>
        </property>
@@ -257,7 +301,7 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
+    <layout class="QHBoxLayout" name="horizontalLayout_5">
      <property name="spacing">
       <number>3</number>
      </property>
@@ -275,6 +319,9 @@
       </spacer>
      </item>
      <item>
+      <widget class="QComboBox" name="Idioma"/>
+     </item>
+     <item>
       <widget class="QPushButton" name="Crear">
        <property name="text">
         <string>Crear GML</string>
@@ -282,7 +329,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="Tancar">
+      <widget class="QPushButton" name="Cerrar">
        <property name="text">
         <string>Salir</string>
        </property>
@@ -295,7 +342,7 @@
  <resources/>
  <connections>
   <connection>
-   <sender>Tancar</sender>
+   <sender>Cerrar</sender>
    <signal>clicked()</signal>
    <receiver>IVGA_dialog</receiver>
    <slot>reject()</slot>
