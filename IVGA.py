@@ -2,8 +2,8 @@
 from PyQt5 import QtNetwork
 from PyQt5.QtCore import Qt, QCoreApplication, QDateTime, QCoreApplication, QUrl
 from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtWidgets import QDialog, QAction, QMessageBox, QFileDialog, QTableWidgetItem, QFrame, QComboBox
-from qgis.core import QgsProject, QgsWkbTypes, QgsMapLayer
+from PyQt5.QtWidgets import QDialog, QAction, QMessageBox, QFileDialog, QTableWidgetItem, QFrame, QComboBox, QCheckBox, QWidget, QHBoxLayout
+from qgis.core import QgsProject, QgsWkbTypes, QgsMapLayer, QgsFeature, QgsGeometry, QgsPointXY
 import string
 
 import os
@@ -82,10 +82,12 @@ class IVGA(QDialog):
         self.ui = Ui_IVGA_dialog()
         self.ui.setupUi(self)
         self.ui.Logo.setPixmap(QPixmap(self.manage_slash(self.plugin_dir + "/IVGA.png")))
+        self.ui.Validar.clicked.connect(self.check_refs)
         self.ui.Carpeta.setIcon(QIcon(self.manage_slash(self.plugin_dir + "/folder.png")))
         self.ui.Carpeta.clicked.connect(self.select_folder)
+        self.ui.Idioma.currentIndexChanged.connect(self.ui.retranslateUi)
         self.ui.Crear.clicked.connect(self.create_gml)
-        self.ui.Tancar.clicked.connect(self.close)
+        self.ui.Cerrar.clicked.connect(self.close)
 
 
     def unload(self):
@@ -95,9 +97,11 @@ class IVGA(QDialog):
         self.iface.removeToolBarIcon(self.action)
         self.iface.newProjectCreated.disconnect(self.change_project)
         self.iface.projectRead.disconnect(self.change_project)
+        self.ui.Validar.clicked.connect(self.check_refs)
+        self.ui.Idioma.currentIndexChanged.connect(self.ui.retranslateUi)
         self.ui.Carpeta.clicked.disconnect(self.select_folder)
         self.ui.Crear.clicked.disconnect(self.create_gml)
-        self.ui.Tancar.clicked.disconnect(self.close)
+        self.ui.Cerrar.clicked.disconnect(self.close)
         del self.toolbar
 
             
@@ -155,7 +159,8 @@ class IVGA(QDialog):
 
         self.z = self.header_gml(iv)
         if self.ui.check.isChecked():
-            self.check_refs()
+            if self.check_refs():
+                self.write_gml()
         else:
             self.write_gml()
         
@@ -168,14 +173,12 @@ class IVGA(QDialog):
          # Check filename
         filename = str(self.ui.fileName.text())
         if filename == "":
-            msg = "Debe definir el nombre del fichero"
-            if self.show_message("W", msg) == QMessageBox.Ok:
+            if self.show_message("W", self.ui.msg_noName) == QMessageBox.Ok:
                 return
         else:
             f = self.manage_slash(self.ui.desti.text() + "/" + filename + ".gml")
             if os.path.exists(f):
-                msg = "El fichero " + filename + ".gml ya existe\n\n¿Desea reemplazarlo?"
-                if self.show_message("P", msg) == QMessageBox.No:
+                if self.show_message("P", self.ui.msg_fileExists.format(filename)) == QMessageBox.No:
                     return
 
 
@@ -183,13 +186,13 @@ class IVGA(QDialog):
         for fil in range(total):
             ref = self.ui.Selec.item(fil, 1).text()
                      
-            area = self.ui.Selec.item(fil, 3).text()
-            namespace = self.ui.Selec.cellWidget(fil, 4).currentText()
+            area = self.ui.Selec.item(fil, 4).text()
+            namespace = self.ui.Selec.cellWidget(fil, 5).currentText()
             localId = ""
             if ref != "" and len(ref) == 14 and namespace == 'SDGC':
                 localId = ref
             else:
-                localId = self.ui.Selec.item(fil, 2).text()
+                localId = self.ui.Selec.item(fil, 3).text()
 
 
             # Get list of points of selected polygon
@@ -213,7 +216,7 @@ class IVGA(QDialog):
         fg.write(self.z)
         fg.close()
         
-        self.show_message("M", "Archivo GML creado en la carpeta destino: \n" + filename + ".gml")
+        self.show_message("M", self.ui.msg_done.format(filename))
 
 
     def header_gml(self, v):
@@ -235,7 +238,7 @@ class IVGA(QDialog):
             z='<?xml version="1.0" encoding="utf-8"?>\n'
             z+='<!-- Archivo generado automaticamente por el plugin IVGA de QGIS. -->\n'
             z+='<!-- Parcela Catastral para entregar a la D.G. del Catastro. Formato INSPIRE v4. -->\n'
-            z+='<FeatureCollection ' ## COMENTARIO D.G. del Catastro: El namespace "wfs:" no se admite en la validación de esta etiqueta
+            z+='<FeatureCollection '
             z+='xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
             z+='xmlns:gml="http://www.opengis.net/gml/3.2" '
             z+='xmlns:xlink="http://www.w3.org/1999/xlink" '
@@ -269,8 +272,7 @@ class IVGA(QDialog):
             z+='<gml:MultiSurface gml:id="MultiSurface_ES.'+namespace+'.CP.'+str(localId)+'" srsName="urn:ogc:def:crs:EPSG::'+str(epsg)+'">\n<gml:surfaceMember>\n'
             z+='<gml:Surface gml:id="Surface_ES.'+namespace+'.CP.'+str(localId)+'.1" srsName="urn:ogc:def:crs:EPSG::'+str(epsg)+'">\n'
             z+='<gml:patches>\n<gml:PolygonPatch>'
-            
-            ## COMENTARIO D.G. del Catastro: Debemos añadir los anillos interiores al GML para parcelas con huecos
+
             z+='\n<gml:exterior>\n<gml:LinearRing>\n'
             z+='<gml:posList srsDimension="2" count="'+str(punN)+'">'+str(punL)+'</gml:posList>\n'
             z+='</gml:LinearRing>\n</gml:exterior>' 
@@ -290,21 +292,17 @@ class IVGA(QDialog):
             z+='</cp:CadastralParcel>\n</gml:featureMember>\n'
             
         else:
-            z='<member>\n' ## COMENTARIO D.G. del Catastro: El namespace "wfs:" no se admite en la validación de esta etiqueta
+            z='<member>\n' 
             z+='<cp:CadastralParcel gml:id="ES.'+namespace+'.CP.'+str(localId)+'">\n'
             z+='<cp:areaValue uom="m2">'+str(area)+'</cp:areaValue>\n'
-
-            ## COMENTARIO D.G. del Catastro: Etiquetas necesarias para el esquema, aunque sean nulas:
             z+='<cp:beginLifespanVersion xsi:nil="true" nilReason="http://inspire.ec.europa.eu/codelist/VoidReasonValue/Unpopulated"></cp:beginLifespanVersion>\n'
             z+='<cp:endLifespanVersion xsi:nil="true" nilReason="http://inspire.ec.europa.eu/codelist/VoidReasonValue/Unpopulated"></cp:endLifespanVersion>\n'
-
             z+='<cp:geometry>\n'
             z+='<gml:MultiSurface gml:id="MultiSurface_ES.'+namespace+'.CP.'+str(localId)+'" srsName="http://www.opengis.net/def/crs/EPSG/0/'+str(epsg)+'">\n'
             z+='<gml:surfaceMember>\n'
             z+='<gml:Surface gml:id="Surface_ES.'+namespace+'.CP.'+str(localId)+'.1" srsName="http://www.opengis.net/def/crs/EPSG/0/'+str(epsg)+'">\n'
             z+='<gml:patches>\n<gml:PolygonPatch>'
 
-            ## COMENTARIO D.G. del Catastro: Debemos añadir los anillos interiores al GML para parcelas con huecos
             z+= '\n<gml:exterior>\n<gml:LinearRing>\n'
             z+='<gml:posList srsDimension="2">'+str(punL)+'</gml:posList>'
             z+='\n</gml:LinearRing>\n</gml:exterior>'
@@ -320,7 +318,7 @@ class IVGA(QDialog):
             z+='<localId>'+str(localId)+'</localId>\n<namespace>ES.'+namespace+'.CP</namespace>\n</Identifier>\n</cp:inspireId>\n'
             z+='<cp:label/>\n<cp:nationalCadastralReference/>'
             z+='\n</cp:CadastralParcel>\n'
-            z+='</member>\n' ## COMENTARIO D.G. del Catastro: El namespace "wfs:" no se admite en la validación de esta etiqueta
+            z+='</member>\n'
 
         return z
 
@@ -331,51 +329,68 @@ class IVGA(QDialog):
         if v == 3:
             z = '</gml:FeatureCollection>\n'
         else:
-            z = '</FeatureCollection>\n' ## COMENTARIO D.G. del Catastro: El namespace "wfs:" no se admite en la validación de esta etiqueta
+            z = '</FeatureCollection>\n'
 
         return z
-
-
+        
 
     def check_refs(self):
+        self.finishedRequests = 0
         total = self.ui.Selec.rowCount()
         self.refsToCheck = []
         self.notFound = []
+        bbox = self.layer.boundingBoxOfSelected()
+        xmin, xmax, ymin, ymax = bbox.xMinimum(), bbox.yMinimum(), bbox.xMaximum(), bbox.yMaximum()
+        bbox = '{},{},{},{}'.format(xmin, xmax, ymin, ymax)
+
+        self.manager_NPO = QtNetwork.QNetworkAccessManager()
+        self.manager_NPO.finished.connect(self.handleResponse_NPO)
+        url = 'http://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx?service=wfs&request=getfeature&Typenames=cp.cadastralparcel&SRSname=EPSG::{}&bbox={}'.format(str(self.crs.split(":")[1]), bbox)
+        print('petición: {}'.format(url))
+        
+        req = QtNetwork.QNetworkRequest(QUrl(url))
+        self.manager_NPO.get(req)
+
+        self.NPP = total
         for fil in range(total):
             ref = self.ui.Selec.item(fil, 1).text().upper()
             if len(ref) == 14 :
                 self.refsToCheck.append([ref,fil])
             else:
-                self.ui.Selec.cellWidget(fil, 4).setCurrentIndex(0)
+                self.ui.Selec.cellWidget(fil, 5).setCurrentIndex(0)
 
         self.manager = QtNetwork.QNetworkAccessManager()
-        self.manager.finished.connect(self.handleResponse)
-        ## COMENTARIO D.G. del Catastro: Definimos QNetworkAccessManager fuera del bucle para no sobreescribir la petición
+        allChecked = self.manager.finished.connect(self.handleResponse)
         if len(self.refsToCheck) > 0:
             for item in self.refsToCheck:
                 url = 'http://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx?service=wfs&version=2&request=getfeature&STOREDQUERIE_ID=GetParcel&refcat={}&srsname=EPSG::{}'.format(item[0],str(self.crs.split(":")[1]))
+                print('petición: {}'.format(url))
                 req = QtNetwork.QNetworkRequest(QUrl(url))
                 self.manager.get(req)
         else:
-            self.write_gml()
+            allChecked = True            
+
+        return allChecked
 
     def handleResponse(self, reply):
         er = reply.error()
         if er == QtNetwork.QNetworkReply.NetworkError.NoError:
             bytes_string = reply.readAll()
             response = str(bytes_string, 'utf-8')
-            print(response)
-
+            #print(response)
             if 'Exception' in response:
                 start = response.index('<ExceptionText><![CDATA[No se ha encontrado la parcela ') + len('<ExceptionText><![CDATA[No se ha encontrado la parcela ')
                 end = start + 14
                 ref = response[start:end]
-                self.notFound.append(ref)
                 for i in range(len(self.refsToCheck)):
                     if self.refsToCheck[i][0] == ref:    
                         fil = self.refsToCheck[i][1]
-                        self.ui.Selec.item(fil, 2).setText(string.ascii_uppercase[fil])
-                        self.ui.Selec.cellWidget(fil, 4).setCurrentIndex(0)
+                        if self.ui.Selec.cellWidget(fil, 2).isChecked():
+                            self.notFound.append(ref)
+                            self.ui.Selec.cellWidget(fil, 2).setChecked(False)
+                        self.ui.Selec.item(fil, 3).setText(string.ascii_uppercase[fil])
+                        self.ui.Selec.cellWidget(fil, 5).setCurrentIndex(0)
+
             elif 'cp:CadastralParcel' in response:
                 start = response.index('<localId>') + len('<localId>')
                 end = start + 14
@@ -383,16 +398,174 @@ class IVGA(QDialog):
                 for i in range(len(self.refsToCheck)):
                     if self.refsToCheck[i][0] == ref:    
                         fil = self.refsToCheck[i][1]
-                        self.ui.Selec.item(fil, 2).setText(ref) ## COMENTARIO D.G. del Catastro: LocalId = ref
-                        self.ui.Selec.cellWidget(fil, 4).setCurrentIndex(1)
+                        if self.ui.Selec.cellWidget(fil, 2).isChecked():
+                            self.ui.Selec.item(fil, 3).setText(ref)
+                            self.ui.Selec.cellWidget(fil, 5).setCurrentIndex(1)
+                        else:
+                            self.ui.Selec.item(fil, 3).setText(string.ascii_uppercase[fil])
+                            self.ui.Selec.cellWidget(fil, 5).setCurrentIndex(0)
 
             if fil == self.refsToCheck[-1][1]:
+                if self.finishedRequests > 0: 
+                    self.display_options()
+                else:
+                    self.finishedRequests +=1
                 if len(self.notFound) > 0 :
-                    msg = "Las Referencias Catastrales siguientes no se encuentran en Catastro:"
+                    msg = ''
                     for ref in self.notFound:
                         msg += '\n' + ref
-                    self.show_message("W", msg)
-                self.write_gml()
+                    self.show_message("W", self.ui.msg_notFound.format(msg))
+                return True
+        return False
+
+
+    def handleResponse_NPO(self, reply):
+        er = reply.error()
+        self.wfsElems = []
+        if er == QtNetwork.QNetworkReply.NetworkError.NoError:
+            bytes_string = reply.readAll()
+            response = str(bytes_string, 'utf-8')
+            #print(response)
+            refs = [i for i in range(len(response)) if response.startswith('<cp:CadastralParcel gml:id="ES.SDGC.CP.',i)]
+            rc = []
+            for i in refs:
+                rc.append(response[i + len('<cp:CadastralParcel gml:id="ES.SDGC.CP.'): i + len('<cp:CadastralParcel gml:id="ES.SDGC.CP.') + 14])
+            print('referencias catastrales WFS: {}'.format(rc))
+            polygonPatches = [i for i in range(len(response)) if response.startswith('<gml:PolygonPatch>', i)]
+            polygonPatchesEnd = [i for i in range(len(response)) if response.startswith('</gml:PolygonPatch>', i)]
+            for index, i in enumerate(polygonPatches):
+
+                i += len('<gml:PolygonPatch>')
+                polygon = response[i:polygonPatchesEnd[index]]
+                exterior = polygon.find('<gml:exterior>') + len('<gml:exterior>')
+                exteriorEnd = polygon.find('</gml:exterior>')
+                exteriorRing = polygon[exterior:exteriorEnd]
+                posList = exteriorRing.find('<gml:posList') + len('<gml:posList')
+                n = exteriorRing[posList:].find('>')
+                posList = posList + n + len('>')
+                posListEnd = exteriorRing.find('</gml:posList>')
+                coordList_ext = exteriorRing[posList:posListEnd]             
+                
+                interiorRings = [j for j in range(len(polygon)) if polygon.startswith('<gml:interior>', j)]
+                interiorRingsEnd = [j for j in range(len(polygon)) if polygon.startswith('</gml:interior>', j)]
+                coordList_int = []
+                for index1, j in enumerate(interiorRings):
+                    j += len('<gml:interior>')
+                    interiorRing = polygon[j:interiorRingsEnd[index1]]
+                    posList1 = interiorRing.find('<gml:posList') + len('<gml:posList')
+                    n = interiorRing[posList1:].find('>')
+                    posList1 = posList1 + n + len('>')
+                    posList1End = interiorRing.find('</gml:posList>')
+                    coordList_int.append(interiorRing[posList1:posList1End])
+
+                self.create_geometry(coordList_ext.split(), coordList_int, rc[index])
+
+            print('Número de parcelas WFS bbox: {}'.format(len(self.wfsElems)))
+            if len(self.wfsElems) > 0:
+                self.count_NPO()
+            if self.finishedRequests > 0: 
+                self.display_options()
+            else:
+                self.finishedRequests +=1
+                
+        else:
+            print('error: {}'.format(er))
+
+
+    def create_geometry(self, coords_ext, rings_int, rc):
+        polygon = []
+        listOfPoints = []
+        for index, coord in enumerate(coords_ext):
+            if not index % 2:
+                listOfPoints.append((float(coord),float(coords_ext[index + 1])))
+        polygon = [QgsPointXY( pair[0], pair[1] ) for pair in listOfPoints ]
+        geometry = QgsGeometry.fromPolygonXY( [polygon] ) 
+
+        if len(rings_int) > 0:
+            for ring in rings_int:
+                listOfPoints = []
+                for index, coord in enumerate(ring.split()):
+                    if not index % 2:
+                        listOfPoints.append((float(coord),float(ring.split()[index + 1])))
+                part = [QgsPointXY( pair[0], pair[1] ) for pair in listOfPoints]
+                geometry.addRing(part)
+        
+        feature = QgsFeature()
+        feature.setGeometry(geometry)
+        self.wfsElems.append([feature, rc])
+
+    def count_NPO(self):
+        self.NPO = []
+        geom = None
+        for elem in self.elems:
+            wkb_type = elem.geometry().wkbType()
+            if wkb_type == QgsWkbTypes.MultiPolygon:
+                for part in elem.geometry().asMultiPolygon():
+                    geom = QgsGeometry.fromPolygonXY(part) if geom == None else geom.combine(QgsGeometry.fromPolygonXY(part) )
+            elif wkb_type == QgsWkbTypes.Polygon:
+                geom = feat.geometry() if geom == None else geom.combine(feat.geometry())
+            
+            for feature in self.wfsElems:
+                if geom.equals(feature[0].geometry()):
+                    self.show_message("C", self.ui.msg_equalGeometries.format(feature[1]))
+                if ( (geom.equals(feature[0].geometry()) or geom.overlaps(feature[0].geometry())) and self.NPO.count(feature[1]) == 0 ):
+                    self.NPO.append(feature[1])
+            geom = None
+        print('NPO: {}'.format(self.NPO))
+        
+        if len(self.NPO) > 0:
+            for feat in self.elems:
+                wkb_type = feat.geometry().wkbType()
+                if wkb_type == QgsWkbTypes.MultiPolygon:
+                    for part in feat.geometry().asMultiPolygon():
+                        geom = QgsGeometry.fromPolygonXY(part) if geom == None else geom.combine(QgsGeometry.fromPolygonXY(part) )
+                elif wkb_type == QgsWkbTypes.Polygon:
+                    geom = feat.geometry() if geom == None else geom.combine(feat.geometry())
+            
+            geom_wfs = None
+            for feat in self.wfsElems:
+                if self.NPO.count(feat[1]) > 0:
+                    print('geometry to merge: {}'.format(feat[1]))
+                    geom_wfs = feat[0].geometry() if geom_wfs == None else geom_wfs.combine(feat[0].geometry())
+            #print('geom:' + geom.asWkt())
+            #print('geom_wfs:'+ geom_wfs.asWkt())
+            if not geom.equals(geom_wfs):
+                self.show_message("C", self.ui.msg_contourError)
+        else:
+            print('No se han encontrado las parcelas de origen')
+
+
+    def display_options(self):
+        total = self.ui.Selec.rowCount()
+        namespaces = []
+        for fil in range(total):
+            namespace = self.ui.Selec.cellWidget(fil, 5).currentIndex()
+            namespaces.append(namespace)
+        LOCAL = namespaces.count(0)
+        SDGC = namespaces.count(1)
+        if len(self.NPO) == 1 and self.NPP > 1:
+            if SDGC == 0:
+                output = 'División' if self.ui.Idioma.currentIndex() == 0 else 'Division'
+            elif SDGC == 1:
+                output = 'Segregación, Subsanación' if self.ui.Idioma.currentIndex() == 0 else 'Segregation, Rectification'
+            elif SDGC > 1:
+                output = 'NO PERMITIDO'    
+        elif len(self.NPO) > 1 and self.NPP == 1:
+            if SDGC == 0 and LOCAL == 1:
+                output = 'Agrupación' if self.ui.Idioma.currentIndex() == 0 else 'Aggregation'
+            if SDGC == 1:
+                output = 'Agregación, Subsanación' if self.ui.Idioma.currentIndex() == 0 else 'Aggregation, Rectification'
+        elif len(self.NPO) == self.NPP:
+            if LOCAL == 0:
+                output = 'Subsanación' if self.ui.Idioma.currentIndex() == 0 else 'Rectification'
+            elif LOCAL > 0:
+                output = 'Subsanación, Reparcelación' if self.ui.Idioma.currentIndex() == 0 else 'Rectification, Reparcelization'
+        elif len(self.NPO) != self.NPP:
+            output = 'Subsanación, Reparcelación' if self.ui.Idioma.currentIndex() == 0 else 'Rectification, Reparcelization'
+        else:
+            output = ''
+        self.ui.options.setText(output)
+        
 
     def get_rings(self, geom):
         """ Get list of rings of selected polygon """
@@ -432,23 +605,22 @@ class IVGA(QDialog):
         """ Validate selected features of active layer """
 
         self.layer = self.iface.activeLayer()
-        self.isVectorLayer = (self.layer.type() == QgsMapLayer.VectorLayer)
         if not self.layer:
-            self.show_message("C", "No hay ninguna capa activa")
+            self.show_message("C", self.ui.msg_noLayer)
             return False
-        elif not self.isVectorLayer:
-            self.show_message("C", "La capa activa debe ser de tipo vectorial")
+        elif not self.layer.type() == QgsMapLayer.VectorLayer:
+            self.show_message("C", self.ui.msg_noVector)
             return False
 
         self.elems = list(sorted(self.layer.selectedFeatures(), key = lambda feature: feature.geometry().area(), reverse=True))
         ne = len(self.elems)
         if ne == 0:
-            self.show_message("C", "Debe seleccionar como mínimo una parcela")
+            self.show_message("C", self.ui.msg_noPolygon)
             return False
 
         self.crs = self.layer.crs().authid()
         if self.crs.split(':')[0] != 'EPSG':
-            self.show_message("C", "La capa activa no utiliza un sistema de coordenadas compatible")
+            self.show_message("C", self.ui.msg_noValidCRS)
             return False
 
         # Check geometry type
@@ -456,15 +628,13 @@ class IVGA(QDialog):
         for feature in features:
             geom = feature.geometry()
             if geom.type() != QgsWkbTypes.PolygonGeometry:
-                msg = "La capa seleccionada no es de tipo polígono"
-                self.show_message("W", msg)
+                self.show_message("W", self.ui.msg_noPolygonSelected)
                 return False
             else:
                 return True
 
 
     def run(self):
-
         # Validate selected features of active layer
         if not self.validate_features_layer():
             return
@@ -478,7 +648,6 @@ class IVGA(QDialog):
         elif self.layer.fields().indexFromName("nationalCadastralReference") != -1:
             nRef = "nationalCadastralReference"
         elif self.layer.fields().indexFromName("nationalCa") != -1:
-            ## COMENTARIO D.G. del Catastro: al importar un GML en QGIS el nombre del campo se corta
             nRef = "nationalCa"
         elif self.layer.fields().indexFromName("localId") != -1:
             nRef = "localId"
@@ -488,13 +657,12 @@ class IVGA(QDialog):
         self.ui.Selec.clear()
         self.ui.Selec.setColumnCount(0)
         self.ui.Selec.setRowCount(0)
-        numCols = 5
+        numCols = 6
         self.ui.Selec.setColumnCount(numCols)
         for col in range(numCols):
-            self.ui.Selec.setColumnWidth(col, int(str("20,120,120,60,80").split(",")[col]))
+            self.ui.Selec.setColumnWidth(col, int(str("20,120,80,120,60,80").split(",")[col]))
 
-        ## COMENTARIO D.G. del Catastro: Añadimos opción de Namespace, que se seleccionará dependiendo de la operación que se necesite hacer
-        self.ui.Selec.setHorizontalHeaderLabels(["S", "RefCat", "LocalId", "Area", "Namespace"])
+        self.ui.Selec.setHorizontalHeaderLabels(["S", "RefCat", "Conservar", "LocalId", "Area", "Namespace"])
         self.ui.Selec.horizontalHeader().setFrameStyle(QFrame.Box | QFrame.Plain)
         self.ui.Selec.horizontalHeader().setLineWidth(1)
 
@@ -504,15 +672,11 @@ class IVGA(QDialog):
         for index, elem in enumerate(self.elems):
             self.geo.append(elem.geometry())
 
-            ## COMENTARIO D.G. del Catastro: Rellenamos un valor diferente para cada parcela seleccionada
             localId = string.ascii_uppercase[index]
-            ## COMENTARIO D.G. del Catastro: Rellenamos siempre con el área calculada para la geometría
             area = int(elem.geometry().area())
-            
             ref = ""
             if nRef != "":
                 ref = elem[nRef]
-
 
             fil += 1
             self.ui.Selec.setRowCount(fil+1)
@@ -527,18 +691,24 @@ class IVGA(QDialog):
             else:
                 self.ui.Selec.setItem(fil, 1, QTableWidgetItem(""))
 
-            self.ui.Selec.setItem(fil, 2, QTableWidgetItem(str(localId)))
+            cell_widget = Widget()
+            self.ui.Selec.setCellWidget(fil, 2, cell_widget)
+
+            self.ui.Selec.setItem(fil, 3, QTableWidgetItem(str(localId)))
             c = QTableWidgetItem(str(area))
             c.setTextAlignment(Qt.AlignRight)
-            self.ui.Selec.setItem(fil, 3, c)
-            self.ui.Selec.item(fil, 3).setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
-            cb = QComboBox()
-            cb.addItems(['LOCAL', 'SDGC'])
-            self.ui.Selec.setCellWidget(fil, 4, cb)
+            self.ui.Selec.setItem(fil, 4, c)
+            self.ui.Selec.item(fil, 4).setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+            cb1 = QComboBox()
+            cb1.addItems(['LOCAL', 'SDGC'])
+            self.ui.Selec.setCellWidget(fil, 5, cb1)
             ref = self.ui.Selec.item(fil,1).text()
             if nRef.startswith("nationalCa") and len(ref) == 14:
-                self.ui.Selec.setItem(fil, 2, QTableWidgetItem(str(ref)))
-                self.ui.Selec.cellWidget(fil, 4).setCurrentIndex(1)
+                self.ui.Selec.cellWidget(fil, 2).setChecked(True)
+                self.ui.Selec.setItem(fil, 3, QTableWidgetItem(str(ref)))
+                self.ui.Selec.cellWidget(fil, 5).setCurrentIndex(1)
+            else:    
+                self.ui.Selec.cellWidget(fil, 2).setChecked(False)
                 
         self.ui.Selec.resizeRowsToContents()
         if self.ui.desti.text().strip() == "":
@@ -550,3 +720,18 @@ class IVGA(QDialog):
         self.ui.check.setChecked(True)
         self.show()
 
+class Widget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.chk_box = QCheckBox()
+        self.chk_box.setCheckState(Qt.Unchecked)
+        hlayout = QHBoxLayout(self)
+        hlayout.addWidget(self.chk_box)
+        hlayout.setAlignment(Qt.AlignCenter)
+        hlayout.setContentsMargins(0, 0, 0, 0)
+
+    def isChecked(self):
+        return self.chk_box.isChecked()
+
+    def setChecked(self, checked):
+        self.chk_box.setChecked(checked)
